@@ -16,7 +16,7 @@ dat<- read.csv("data/BumbleBeesAsterSuccessDensity2.csv")
 
 sapply(dat, class)
 
-#OK, look fine except for class of "HB.Host" that describes if a honeybee hive was present (1) or not (0)
+#OK, looks fine except for class of "HB.Host" that describes if a honeybee hive was present (1) or not (0)
 # Need to make this a 'factor' so that aster correctly treats this as a 2-level treatment and not a
 # continuous variable
 
@@ -70,6 +70,27 @@ with(redata, sort(unique(as.character(varb)[fit == 1]))) #all good!
 
 redata<- data.frame(redata, root=1)
 
+
+#The distribution for one node (Success) is the only debatable distribution (others are clearly Bernoulli)
+
+library(MASS)
+
+suc<- dat$Success
+
+fit.1<- fitdistr(suc, "normal")
+fit.2<- fitdistr(suc, "negative binomial")#size: 0.11105926
+fit.3<- fitdistr(suc, "poisson")
+
+AIC(fit.1, fit.2, fit.3)
+
+fit.2 #Just for now (we need to discuss this), set Success as neg.binomial
+
+#Therefore, we need to set a custom family list of statistical distributions for aster
+#This wilil be easy, as there are only two unique distribution
+
+famlist<- list(fam.bernoulli(), fam.negative.binomial(0.11105926))
+
+
 #load aster package
 library(aster)
 
@@ -78,20 +99,27 @@ pred<- c(0,1,2,3)
 fam<- c(1,1, 1,2)
 
 #describe dist. of preds.
-sapply(fam.default(), as.character)[fam]
+sapply(fam.default(), as.character)[fam] #this will still say bernoulli & Poisson, but the designation
+                                          # of custom family list above will override this in aster
 
 #fixed effect model
-aout<- aster(resp~varb, pred, fam, varb, id, root, data=redata)
+aout<- aster(resp~varb, pred, fam, varb, id, root, data=redata, famlist= famlist)
 
 #show summary of first aster model...although we can't learn much from this
+#NOTE: that success is now treated as neg.binomial with size 0.11105926
 summary(aout, show.graph = T)
 
 #add presence of hive/host
-aout2<- aster(resp~varb + fit:HB.Host, pred, fam, varb, id, root, data=redata)
+aout2<- aster(resp~varb + fit:HB.Host, pred, fam, varb, id, root, data=redata, famlist=famlist)
 
 summary(aout2, show.graph = T)
 
+#add bee density
+aout3<- aster(resp~varb + fit:HB.Host + fit:HBDensity, pred, fam, varb, id, root, data=redata, famlist=famlist)
 
+summary(aout3, show.graph = T)
+
+anova(aout, aout2, aout3)
 ############################################
 # For prelimiary resutls, lets generate estiamtes of "Success" with standar errors for the two levels
 #of the treatment "HB.Host"
@@ -148,6 +176,10 @@ rownames(ests)<- as.character(fred$HB.Host)
 
 #assign column names
 colnames(ests)<- c("Success", "SE")
+
+#show estimates
+ests
+
 
 
 ################################################################################
