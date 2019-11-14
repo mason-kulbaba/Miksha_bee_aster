@@ -5,7 +5,7 @@ setwd("C:/Users/Mason Kulbaba/Dropbox/git/Miksha_bee_aster")
 
 #load data - this is the revised data (Nov 10, 2019) from Ron
 
-dat<- read.csv("data/BumbleBeesAsterSuccessDensity2.csv")
+dat<- read.csv("data/BBSuccess_Aster.csv")
 
 
 ##############################################################################
@@ -39,14 +39,13 @@ names(dat)
 
 # 1) Fluff - any evidence of a visit? (0/1)
 
-# 2) Pupae.1 - did nest produce at least 1 cocoon (0/1)?
+# 2) Cells - did nest produce any cells (0/1)?
 
-# 3) Pupae.8 - did nest reach cell cup/honey stage (0/1)?
-
-# 4) Success - number of cups/cocoons produced by nest (1-5, integer)
+# 3) Cell.Count - how many cells were produced?
 
 
-vars<- c("Fluff","Pupae.1","Pupae.8", "Success")
+
+vars<- c("Fluff","Cells", "Cell.Count")
 
 
 #reshape data so that all response variables are located in a single vector in a new data
@@ -55,7 +54,7 @@ redata <- reshape(dat, varying = list(vars), direction = "long",timevar = "varb"
 
 
 #Designation of "fitness" variable: success
-fit <- grepl("Success", as.character(redata$varb))
+fit <- grepl("Cell.Count", as.character(redata$varb))
 fit<- as.numeric(fit)
 
 #add this designation to the reshaped data, 'redata'
@@ -75,11 +74,11 @@ redata<- data.frame(redata, root=1)
 
 library(MASS)
 
-suc<- dat$Success
+count<- dat$Cell.Count
 
-fit.1<- fitdistr(suc, "normal")
-fit.2<- fitdistr(suc, "negative binomial")#size: 0.11105926
-fit.3<- fitdistr(suc, "poisson")
+fit.1<- fitdistr(count, "normal")
+fit.2<- fitdistr(count, "negative binomial")#size: 0.042093032 
+fit.3<- fitdistr(count, "poisson")
 
 AIC(fit.1, fit.2, fit.3)
 
@@ -88,15 +87,15 @@ fit.2 #Just for now (we need to discuss this), set Success as neg.binomial
 #Therefore, we need to set a custom family list of statistical distributions for aster
 #This wilil be easy, as there are only two unique distribution
 
-famlist<- list(fam.bernoulli(), fam.negative.binomial(0.11105926))
+famlist<- list(fam.bernoulli(), fam.negative.binomial(0.042093032 ))
 
 
 #load aster package
 library(aster)
 
 #set graphical mode and dist. for fitness nodes (preds)
-pred<- c(0,1,2,3)
-fam<- c(1,1, 1,2)
+pred<- c(0,1,2)
+fam<- c(1,1,2)
 
 #describe dist. of preds.
 sapply(fam.default(), as.character)[fam] #this will still say bernoulli & Poisson, but the designation
@@ -119,7 +118,18 @@ aout3<- aster(resp~varb + fit:HB.Host + fit:HBDensity, pred, fam, varb, id, root
 
 summary(aout3, show.graph = T)
 
+#liklihood ratio test
 anova(aout, aout2, aout3)
+
+#only bee density
+aout4<- aster(resp~varb + fit:HBDensity, pred, fam, varb, id, root, data=redata, famlist=famlist)
+
+summary(aout4, show.graph = T)
+
+
+anova(aout, aout4)
+
+
 ############################################
 # For prelimiary resutls, lets generate estiamtes of "Success" with standar errors for the two levels
 #of the treatment "HB.Host"
@@ -128,7 +138,7 @@ anova(aout, aout2, aout3)
 # all variable equal to 1 for now, just so we can make an actual matrix (the value doesn't matter).
 # However, make sure both levels of 'HB.Host' are represented.
 
-fred <- data.frame(HB.Host=levels(dat$HB.Host), Fluff=1, Pupae.1=1, Pupae.8=1, Success=1, root = 1)
+fred <- data.frame(HB.Host=levels(dat$HB.Host), Fluff=1, Cells=1, Cell.Count=1, root = 1)
 
 # reshape the design matrix just as we did for the actual data
 renewdata <- reshape(fred, varying = list(vars),
@@ -142,7 +152,7 @@ layer<- gsub("[0-9]", "", as.character(renewdata$varb))
 renewdata<- data.frame(renewdata, layer= layer)
 
 # add 'Success' in new layer column of renewdata as numeric, called fit
-fit<- as.numeric(layer=="Success")
+fit<- as.numeric(layer=="Cell.Count")
 
 # add fit to renewdata
 renewdata<- data.frame(renewdata, fit = fit)
@@ -157,7 +167,7 @@ dim(amat)# makes a 2 x 4 x 2 matrix (2 Host types and 4 nodes of graphicla model
 #only want prediction for k'th individual that contribute to expected
 #fitness, and want to add only success entries
 
-foo<- grepl("Success", vars)
+foo<- grepl("Cell.Count", vars)
 for(k in 1:nHost)
   amat[k, foo, k]<- 1
 

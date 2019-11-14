@@ -1,0 +1,10 @@
+Aster meeting with Ron and Lawrence: November 13, 2019
+
+-what is success? *silk cocoons* matter more than cups -> this data needs to be reconsidered.
+     -so, use number of cups for now.
+
+#new aster model graphical model:
+
+0->fluff->initiation->number of cups (both kinds of cups: wax (?) and pupal)
+
+Mason: will need to check dist. of number of cups.
